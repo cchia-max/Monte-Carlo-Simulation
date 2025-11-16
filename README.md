@@ -10,10 +10,15 @@ This project demonstrates Monte Carlo simulation techniques commonly used in qua
 Features
 
 Real-time Simulation: Run up to 10,000 Monte Carlo paths instantly
+
 Interactive Parameters: Adjust initial value, expected returns, volatility, and time horizon
+
 Visual Results: See 50 sample paths plotted on an interactive chart
+
 Statistical Analysis: View key metrics including mean, median, standard deviation, and percentiles
+
 Probability Assessment: Calculate the likelihood of different outcomes
+
 Responsive Design: Works seamlessly on desktop and mobile devices
 
 
@@ -22,15 +27,21 @@ Monte Carlo simulation is a computational technique that uses random sampling to
 Common Applications:
 
 Finance: Portfolio optimization, option pricing, risk assessment
+
 Engineering: Reliability analysis, design optimization
+
 Science: Molecular modeling, climate predictions
+
 Project Management: Schedule risk analysis, cost estimation
 
 Technology Stack
 
 React - Component-based UI framework
+
 Recharts - Data visualization library
+
 Tailwind CSS - Utility-first styling
+
 Lucide React - Icon library
 
 
@@ -39,9 +50,13 @@ How to Use
 Set Parameters:
 
 Number of Simulations: How many random paths to generate (100-10,000)
+
 Initial Value: Starting amount ($10-$1,000)
+
 Mean Annual Return: Expected growth rate (-20% to +30%)
+
 Volatility: Price variability (1% to 50%)
+
 Time Steps: Number of trading days to simulate (50-500)
 
 
