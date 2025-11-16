@@ -1,0 +1,273 @@
+import React, { useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Play, RotateCcw } from 'lucide-react';
+
+export default function MonteCarloSimulation() {
+  const [simulations, setSimulations] = useState(1000);
+  const [initialValue, setInitialValue] = useState(100);
+  const [meanReturn, setMeanReturn] = useState(0.07);
+  const [volatility, setVolatility] = useState(0.15);
+  const [timeSteps, setTimeSteps] = useState(252);
+  const [results, setResults] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const runSimulation = () => {
+    setIsRunning(true);
+    
+    // Run simulations
+    const allPaths = [];
+    const finalValues = [];
+    
+    for (let sim = 0; sim < simulations; sim++) {
+      let value = initialValue;
+      const path = [{ step: 0, value: initialValue }];
+      
+      for (let step = 1; step <= timeSteps; step++) {
+        // Generate random normal variable (Box-Muller transform)
+        const u1 = Math.random();
+        const u2 = Math.random();
+        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        
+        // Calculate return for this step
+        const dt = 1 / 252; // daily time step
+        const drift = (meanReturn - 0.5 * volatility ** 2) * dt;
+        const shock = volatility * Math.sqrt(dt) * z;
+        const returnVal = Math.exp(drift + shock);
+        
+        value *= returnVal;
+        path.push({ step, value });
+      }
+      
+      allPaths.push(path);
+      finalValues.push(value);
+    }
+    
+    // Calculate statistics
+    finalValues.sort((a, b) => a - b);
+    const mean = finalValues.reduce((a, b) => a + b, 0) / finalValues.length;
+    const variance = finalValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / finalValues.length;
+    const stdDev = Math.sqrt(variance);
+    const percentile5 = finalValues[Math.floor(finalValues.length * 0.05)];
+    const percentile95 = finalValues[Math.floor(finalValues.length * 0.95)];
+    const median = finalValues[Math.floor(finalValues.length * 0.5)];
+    
+    // Prepare chart data - show 50 sample paths
+    const samplePaths = allPaths.slice(0, 50);
+    const chartData = [];
+    for (let step = 0; step <= timeSteps; step += Math.floor(timeSteps / 50)) {
+      const dataPoint = { step };
+      samplePaths.forEach((path, idx) => {
+        dataPoint[`path${idx}`] = path[step].value;
+      });
+      chartData.push(dataPoint);
+    }
+    
+    setResults({
+      chartData,
+      finalValues,
+      stats: {
+        mean: mean.toFixed(2),
+        median: median.toFixed(2),
+        stdDev: stdDev.toFixed(2),
+        percentile5: percentile5.toFixed(2),
+        percentile95: percentile95.toFixed(2),
+        probProfit: ((finalValues.filter(v => v > initialValue).length / finalValues.length) * 100).toFixed(1)
+      }
+    });
+    
+    setIsRunning(false);
+  };
+
+  const reset = () => {
+    setResults(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
+          <h1 className="text-4xl font-bold text-white mb-2">Monte Carlo Simulation</h1>
+          <p className="text-purple-200 mb-8">Simulate thousands of possible outcomes using random sampling</p>
+          
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+              <h2 className="text-xl font-semibold text-white mb-4">Parameters</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="text-purple-200 text-sm block mb-2">
+                    Number of Simulations: {simulations}
+                  </label>
+                  <input
+                    type="range"
+                    min="100"
+                    max="10000"
+                    step="100"
+                    value={simulations}
+                    onChange={(e) => setSimulations(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-purple-200 text-sm block mb-2">
+                    Initial Value: ${initialValue}
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="1000"
+                    step="10"
+                    value={initialValue}
+                    onChange={(e) => setInitialValue(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-purple-200 text-sm block mb-2">
+                    Mean Annual Return: {(meanReturn * 100).toFixed(1)}%
+                  </label>
+                  <input
+                    type="range"
+                    min="-0.2"
+                    max="0.3"
+                    step="0.01"
+                    value={meanReturn}
+                    onChange={(e) => setMeanReturn(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-purple-200 text-sm block mb-2">
+                    Volatility: {(volatility * 100).toFixed(1)}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0.01"
+                    max="0.5"
+                    step="0.01"
+                    value={volatility}
+                    onChange={(e) => setVolatility(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-purple-200 text-sm block mb-2">
+                    Time Steps (Trading Days): {timeSteps}
+                  </label>
+                  <input
+                    type="range"
+                    min="50"
+                    max="500"
+                    step="10"
+                    value={timeSteps}
+                    onChange={(e) => setTimeSteps(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={runSimulation}
+                  disabled={isRunning}
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50"
+                >
+                  <Play size={20} />
+                  {isRunning ? 'Running...' : 'Run Simulation'}
+                </button>
+                
+                <button
+                  onClick={reset}
+                  className="bg-white/10 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-white/20 transition-all border border-white/20"
+                >
+                  <RotateCcw size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {results && (
+              <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                <h2 className="text-xl font-semibold text-white mb-4">Results</h2>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-purple-200">Mean Final Value</span>
+                    <span className="text-white font-semibold">${results.stats.mean}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-purple-200">Median Final Value</span>
+                    <span className="text-white font-semibold">${results.stats.median}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-purple-200">Std Deviation</span>
+                    <span className="text-white font-semibold">${results.stats.stdDev}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-purple-200">5th Percentile</span>
+                    <span className="text-white font-semibold">${results.stats.percentile5}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-purple-200">95th Percentile</span>
+                    <span className="text-white font-semibold">${results.stats.percentile95}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 bg-green-500/20 rounded-lg px-3 mt-4">
+                    <span className="text-green-200 font-medium">Probability of Profit</span>
+                    <span className="text-green-300 font-bold text-lg">{results.stats.probProfit}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {results && (
+            <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+              <h2 className="text-xl font-semibold text-white mb-4">Simulation Paths (50 samples)</h2>
+              <ResponsiveContainer width="100%" height={400}>
+                <LineChart data={results.chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="step" 
+                    stroke="rgba(255,255,255,0.5)"
+                    label={{ value: 'Time Steps', position: 'insideBottom', offset: -5, fill: 'rgba(255,255,255,0.7)' }}
+                  />
+                  <YAxis 
+                    stroke="rgba(255,255,255,0.5)"
+                    label={{ value: 'Value ($)', angle: -90, position: 'insideLeft', fill: 'rgba(255,255,255,0.7)' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)' }}
+                  />
+                  {Object.keys(results.chartData[0])
+                    .filter(key => key !== 'step')
+                    .map((key, idx) => (
+                      <Line
+                        key={key}
+                        type="monotone"
+                        dataKey={key}
+                        stroke={`hsl(${idx * 7}, 70%, 60%)`}
+                        strokeWidth={1}
+                        dot={false}
+                      />
+                    ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-6 bg-white/5 backdrop-blur-lg rounded-xl p-6 border border-white/10">
+          <h3 className="text-lg font-semibold text-white mb-3">About This Simulation</h3>
+          <p className="text-purple-200 text-sm leading-relaxed">
+            This Monte Carlo simulation uses geometric Brownian motion to model asset price evolution. 
+            It's commonly used in finance for portfolio analysis, option pricing, and risk assessment. 
+            Each simulation represents a possible future path based on the specified parameters. 
+            The results show you the range of possible outcomes and their probabilities.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
