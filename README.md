@@ -2,6 +2,25 @@ Monte Carlo Simulation
 
 An interactive web-based Monte Carlo simulation using geometric Brownian motion to model asset price evolution and risk analysis
 
+## Live Demo
+
+The simulation runs live via GitHub Pages:
+
+**https://cchia-max.github.io/Monte-Carlo-Simulation/**
+
+(Give it a minute or two after enabling Pages for the first build to finish.)
+
+## Running Locally
+
+No build step is required. The app is a single self-contained `index.html` that loads React, Recharts, and Babel from CDNs.
+
+1. Download the repository (or just `index.html`).
+2. Open `index.html` in any modern web browser.
+3. Adjust the sliders and click **Run Simulation**.
+
+Because everything runs client-side in the browser, there is nothing to install and no server to start.
+
+
 
 Overview
 This project demonstrates Monte Carlo simulation techniques commonly used in quantitative finance, risk management, and statistical modeling. The simulation generates thousands of possible future scenarios based on random sampling, allowing you to visualize the distribution of outcomes and assess probabilities.
