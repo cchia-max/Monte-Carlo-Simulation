@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monte Carlo Simulation — Geometric Brownian Motion</title>
+
+  <!--
+    ============================================================
+    DEPENDENCIES (loaded from CDNs so there is NO build step).
+    Just open this file in a browser and it runs.
+      - React + ReactDOM : the UI framework
+      - Babel Standalone  : compiles the JSX in <script type="text/babel"> in the browser
+      - Recharts (+ its peer, PropTypes) : the charting library used to draw the paths
+    ============================================================
+  -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/prop-types@15/prop-types.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2/umd/Recharts.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+  <style>
+    /* ---- Basic page styling (plain CSS instead of Tailwind, so no build needed) ---- */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      /* Dark purple gradient background, matching the project's described theme */
+      background: linear-gradient(135deg, #0f172a 0%, #4c1d95 50%, #0f172a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+    h1 { font-size: 28px; margin: 0 0 4px; }
+    .subtitle { color: #c4b5fd; margin: 0 0 24px; font-size: 14px; }
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
+    label { display: block; font-size: 13px; margin-bottom: 6px; color: #cbd5e1; }
+    label span { color: #f0abfc; font-weight: 600; }
+    /* Gradient slider track */
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px; border-radius: 3px;
+      background: linear-gradient(to right, #a855f7, #ec4899);
+      outline: none; opacity: 0.85; cursor: pointer;
+    }
+    input[type="range"]:hover { opacity: 1; }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; border: 2px solid #a855f7; cursor: pointer;
+    }
+    .buttons { display: flex; gap: 12px; margin-top: 4px; }
+    button {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: none; border-radius: 10px; padding: 12px 20px;
+      font-size: 15px; font-weight: 600; cursor: pointer; color: #fff;
+    }
+    .run  { background: linear-gradient(to right, #a855f7, #ec4899); }
+    .run:disabled { opacity: 0.5; cursor: not-allowed; }
+    .reset { background: rgba(148, 163, 184, 0.25); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+    .stat { background: rgba(15, 23, 42, 0.6); border-radius: 10px; padding: 14px; }
+    .stat .k { font-size: 12px; color: #94a3b8; }
+    .stat .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .green { color: #4ade80; }
+    .hint { font-size: 12px; color: #94a3b8; margin-top: 16px; }
+  </style>
+</head>
+
+<body>
+  <!-- React mounts the whole app into this single div -->
+  <div id="root"></div>
+
+  <!--
+    type="text/babel" tells Babel Standalone to compile this block as JSX
+    before the browser runs it. This is what lets us write React/JSX
+    directly in an .html file with no build tooling.
+  -->
+  <script type="text/babel">
+    // Pull the hooks we need off the global React object (loaded via CDN above).
+    const { useState } = React;
+    // Pull the chart pieces we need off the global Recharts object.
+    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+
+    // ============================================================
+    // The main component. All simulation logic lives here.
+    // ============================================================
+    function MonteCarloSimulation() {
+      // --- Simulation parameters, each stored in React state so sliders can change them ---
+      const [simulations, setSimulations]   = useState(1000);  // how many random paths to generate
+      const [initialValue, setInitialValue] = useState(100);   // starting asset price
+      const [meanReturn, setMeanReturn]      = useState(0.07);  // expected annual return (drift, mu)
+      const [volatility, setVolatility]      = useState(0.15);  // annual volatility (sigma)
+      const [timeSteps, setTimeSteps]        = useState(252);   // trading days to simulate (252 = 1 year)
+      const [results, setResults]            = useState(null);  // holds the output once we run
+      const [isRunning, setIsRunning]        = useState(false); // disables the button mid-run
+
+      // ----------------------------------------------------------
+      // runSimulation: the heart of the Monte Carlo method.
+      // ----------------------------------------------------------
+      const runSimulation = () => {
+        setIsRunning(true);
+
+        const allPaths = [];    // every simulated price path
+        const finalValues = []; // just the ending price of each path (for statistics)
+
+        // Outer loop: repeat the whole experiment 'simulations' times.
+        for (let sim = 0; sim < simulations; sim++) {
+          let value = initialValue;                       // reset price to the start
+          const path = [{ step: 0, value: initialValue }]; // record the path day-by-day
+
+          // Inner loop: step the price forward one day at a time.
+          for (let step = 1; step <= timeSteps; step++) {
+            // Box-Muller transform: turn two uniform randoms into one
+            // standard-normal random number z (mean 0, std dev 1).
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+
+            // Geometric Brownian Motion, discrete form:
+            // S(t+1) = S(t) * exp( (mu - sigma^2/2) * dt + sigma * sqrt(dt) * z )
+            const dt = 1 / 252;                                    // one trading day as a fraction of a year
+            const drift = (meanReturn - 0.5 * volatility ** 2) * dt; // deterministic part
+            const shock = volatility * Math.sqrt(dt) * z;            // random part
+            const returnVal = Math.exp(drift + shock);              // multiplicative growth factor
+
+            value *= returnVal;              // apply the growth to today's price
+            path.push({ step, value });      // save the new price
+          }
+
+          allPaths.push(path);     // store this whole path
+          finalValues.push(value); // store just its final price
+        }
+
+        // --- Statistics across all the final prices ---
+        finalValues.sort((a, b) => a - b); // sort ascending so we can read percentiles
+        const mean = finalValues.reduce((a, b) => a + b, 0) / finalValues.length;
+        const variance = finalValues.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / finalValues.length;
+        const stdDev = Math.sqrt(variance);
+        const median      = finalValues[Math.floor(finalValues.length * 0.5)];
+        const percentile5 = finalValues[Math.floor(finalValues.length * 0.05)];
+        const percentile95= finalValues[Math.floor(finalValues.length * 0.95)];
+        const probProfit  = (finalValues.filter(v => v > initialValue).length / finalValues.length) * 100;
+
+        // --- Build chart data: plot only the first 50 paths so the chart stays readable ---
+        const samplePaths = allPaths.slice(0, 50);
+        const chartData = [];
+        const stepSize = Math.max(1, Math.floor(timeSteps / 50)); // thin out points for performance
+        for (let step = 0; step <= timeSteps; step += stepSize) {
+          const dataPoint = { step };
+          samplePaths.forEach((p, idx) => { dataPoint['path' + idx] = p[step].value; });
+          chartData.push(dataPoint);
+        }
+
+        // Save everything to state, which re-renders the UI with results.
+        setResults({
+          chartData,
+          stats: {
+            mean: mean.toFixed(2),
+            median: median.toFixed(2),
+            stdDev: stdDev.toFixed(2),
+            percentile5: percentile5.toFixed(2),
+            percentile95: percentile95.toFixed(2),
+            probProfit: probProfit.toFixed(1),
+          },
+        });
+        setIsRunning(false);
+      };
+
+      // Clear results to start over.
+      const reset = () => setResults(null);
+
+      // A small reusable slider control (keeps the JSX below tidy).
+      const Slider = ({ label, value, min, max, step, onChange, fmt }) => (
+        <div>
+          <label>{label}: <span>{fmt ? fmt(value) : value}</span></label>
+          <input type="range" min={min} max={max} step={step} value={value}
+                 onChange={e => onChange(Number(e.target.value))} />
+        </div>
+      );
+
+      // ----------------------------------------------------------
+      // The rendered UI.
+      // ----------------------------------------------------------
+      return (
+        <div className="container">
+          <h1>Monte Carlo Simulation</h1>
+          <p className="subtitle">Geometric Brownian Motion — modelling asset price evolution &amp; risk</p>
+
+          {/* ---- Parameter controls ---- */}
+          <div className="card">
+            <div className="grid">
+              <Slider label="Simulations" value={simulations} min={100} max={10000} step={100}
+                      onChange={setSimulations} />
+              <Slider label="Initial Value" value={initialValue} min={10} max={1000} step={10}
+                      onChange={setInitialValue} fmt={v => '$' + v} />
+              <Slider label="Mean Annual Return" value={meanReturn} min={-0.2} max={0.3} step={0.01}
+                      onChange={setMeanReturn} fmt={v => (v * 100).toFixed(0) + '%'} />
+              <Slider label="Volatility" value={volatility} min={0.01} max={0.5} step={0.01}
+                      onChange={setVolatility} fmt={v => (v * 100).toFixed(0) + '%'} />
+              <Slider label="Time Steps (days)" value={timeSteps} min={50} max={500} step={10}
+                      onChange={setTimeSteps} />
+            </div>
+            <div className="buttons">
+              <button className="run" onClick={runSimulation} disabled={isRunning}>
+                {isRunning ? 'Running…' : '▶ Run Simulation'}
+              </button>
+              <button className="reset" onClick={reset}>↺ Reset</button>
+            </div>
+          </div>
+
+          {/* ---- Results (only shown after a run) ---- */}
+          {results && (
+            <React.Fragment>
+              <div className="card">
+                <div className="stats">
+                  <div className="stat"><div className="k">Mean</div><div className="v">${results.stats.mean}</div></div>
+                  <div className="stat"><div className="k">Median</div><div className="v">${results.stats.median}</div></div>
+                  <div className="stat"><div className="k">Std Dev</div><div className="v">${results.stats.stdDev}</div></div>
+                  <div className="stat"><div className="k">5th Percentile</div><div className="v">${results.stats.percentile5}</div></div>
+                  <div className="stat"><div className="k">95th Percentile</div><div className="v">${results.stats.percentile95}</div></div>
+                  <div className="stat"><div className="k">Prob. of Profit</div><div className="v green">{results.stats.probProfit}%</div></div>
+                </div>
+              </div>
+
+              <div className="card">
+                <ResponsiveContainer width="100%" height={420}>
+                  <LineChart data={results.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                    <XAxis dataKey="step" stroke="#94a3b8" label={{ value: 'Day', position: 'insideBottom', offset: -5, fill: '#94a3b8' }} />
+                    <YAxis stroke="#94a3b8" />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155' }} />
+                    {Array.from({ length: 50 }).map((_, i) => (
+                      <Line key={i} type="monotone" dataKey={'path' + i}
+                            stroke={'hsl(' + (270 + i * 2) + ', 70%, 65%)'}
+                            strokeWidth={1} dot={false} isAnimationActive={false} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </React.Fragment>
+          )}
+
+          <p className="hint">
+            Tip: raise "Simulations" for more accurate statistics; only the first 50 paths are plotted for readability.
+          </p>
+        </div>
+      );
+    }
+
+    // Mount the React app into the #root div.
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<MonteCarloSimulation />);
+  </script>
+</body>
+</html>
