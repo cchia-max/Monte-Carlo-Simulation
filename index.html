@@ -87,8 +87,10 @@
   <script type="text/babel">
     // Pull the hooks we need off the global React object (loaded via CDN above).
     const { useState } = React;
-    // Pull the chart pieces we need off the global Recharts object.
-    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+    // Recharts' UMD build exposes its global as "_Recharts" (with a fallback to "Recharts").
+    const RC = window._Recharts || window.Recharts;
+    // Pull the chart pieces we need off the Recharts global.
+    const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = RC;
 
     // ============================================================
     // The main component. All simulation logic lives here.
