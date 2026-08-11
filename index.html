@@ -27,36 +27,36 @@
     body {
       margin: 0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      /* Dark purple gradient background, matching the project's described theme */
-      background: linear-gradient(135deg, #0f172a 0%, #4c1d95 50%, #0f172a 100%);
+      /* Solid dark blue background (no gradient) */
+      background: #0f213f;
       color: #e2e8f0;
       min-height: 100vh;
     }
     .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
     h1 { font-size: 28px; margin: 0 0 4px; }
-    .subtitle { color: #c4b5fd; margin: 0 0 24px; font-size: 14px; }
+    .subtitle { color: #93c5fd; margin: 0 0 24px; font-size: 14px; }
     .card {
-      background: rgba(30, 41, 59, 0.7);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: #16305c;
+      border: 1px solid #1e3a6b;
       border-radius: 14px;
       padding: 20px;
       margin-bottom: 20px;
     }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
     label { display: block; font-size: 13px; margin-bottom: 6px; color: #cbd5e1; }
-    label span { color: #f0abfc; font-weight: 600; }
-    /* Gradient slider track */
+    label span { color: #60a5fa; font-weight: 600; }
+    /* Solid blue slider track (no gradient) */
     input[type="range"] {
       -webkit-appearance: none; appearance: none;
       width: 100%; height: 6px; border-radius: 3px;
-      background: linear-gradient(to right, #a855f7, #ec4899);
-      outline: none; opacity: 0.85; cursor: pointer;
+      background: #2563eb;
+      outline: none; opacity: 0.9; cursor: pointer;
     }
     input[type="range"]:hover { opacity: 1; }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 18px; height: 18px; border-radius: 50%;
-      background: #fff; border: 2px solid #a855f7; cursor: pointer;
+      background: #fff; border: 2px solid #2563eb; cursor: pointer;
     }
     .buttons { display: flex; gap: 12px; margin-top: 4px; }
     button {
@@ -64,11 +64,12 @@
       border: none; border-radius: 10px; padding: 12px 20px;
       font-size: 15px; font-weight: 600; cursor: pointer; color: #fff;
     }
-    .run  { background: linear-gradient(to right, #a855f7, #ec4899); }
+    /* Solid blue button (no gradient) */
+    .run  { background: #2563eb; }
     .run:disabled { opacity: 0.5; cursor: not-allowed; }
-    .reset { background: rgba(148, 163, 184, 0.25); }
+    .reset { background: #1e3a6b; }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
-    .stat { background: rgba(15, 23, 42, 0.6); border-radius: 10px; padding: 14px; }
+    .stat { background: #0f213f; border-radius: 10px; padding: 14px; }
     .stat .k { font-size: 12px; color: #94a3b8; }
     .stat .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
     .green { color: #4ade80; }
@@ -251,10 +252,10 @@
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                     <XAxis dataKey="step" stroke="#94a3b8" label={{ value: 'Day', position: 'insideBottom', offset: -5, fill: '#94a3b8' }} />
                     <YAxis stroke="#94a3b8" />
-                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155' }} />
+                    <Tooltip contentStyle={{ background: '#0f213f', border: '1px solid #1e3a6b' }} />
                     {Array.from({ length: 50 }).map((_, i) => (
                       <Line key={i} type="monotone" dataKey={'path' + i}
-                            stroke={'hsl(' + (270 + i * 2) + ', 70%, 65%)'}
+                            stroke={'hsl(217, 70%, ' + (45 + (i % 5) * 8) + '%)'}
                             strokeWidth={1} dot={false} isAnimationActive={false} />
                     ))}
                   </LineChart>
